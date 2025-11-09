@@ -1,0 +1,17 @@
+# Các thư viện chính
+ultralytics
+streamlit
+pandas
+streamlit-webrtc
+av
+
+# --- Sửa lỗi xung đột ---
+
+# 1. Sửa lỗi xung đột Protobuf (do ultralytics và streamlit gây ra)
+protobuf==3.20.3
+
+# 2. Sửa lỗi xung đột của Streamlit (dependency hell)
+# Cặp này sửa lỗi 'TypeError: ... 'closed'' VÀ 'AttributeError: ... '_typing_check''
+altair==5.2.0
+typing-extensions==4.10.0
+referencing==0.32.0
