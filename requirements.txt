@@ -4,6 +4,7 @@ streamlit
 pandas
 streamlit-webrtc
 av
+opencv-python-headless
 
 # --- Sửa lỗi xung đột ---
 

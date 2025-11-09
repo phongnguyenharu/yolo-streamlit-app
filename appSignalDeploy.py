@@ -4,8 +4,11 @@ from ultralytics import YOLO
 import pandas as pd
 import tempfile
 import os
-import threading # Thêm thư viện threading
-from streamlit_webrtc import WebRtcMode, webrtc_streamer, VideoTransformerBase # Thư viện webcam deploy
+import threading
+# Import thêm 'av' để chuyển đổi frame
+import av 
+# Đổi tên class và argument
+from streamlit_webrtc import WebRtcMode, webrtc_streamer, VideoProcessorBase
 
 # Sử dụng cache của Streamlit để tải model chỉ một lần
 @st.cache_resource
@@ -21,19 +24,20 @@ def load_yolo_model(model_path):
         return None
 
 # ---- Biến toàn cục (để chia sẻ dữ liệu giữa các thread) ----
-# Cần khóa (lock) để tránh xung đột khi nhiều người dùng truy cập
 lock = threading.Lock()
 detections_container = {"detections": []} # Dùng dict để có thể thay đổi (mutable)
 
-# ---- Class Xử lý Video của Streamlit-WebRTC ----
-class YoloVideoTransformer(VideoTransformerBase):
+# ---- Class Xử lý Video (Đã cập nhật) ----
+# 1. Đổi tên từ VideoTransformerBase -> VideoProcessorBase
+class YoloVideoProcessor(VideoProcessorBase):
     def __init__(self, model):
         self.model = model
         self.lock = lock
         self.container = detections_container
 
-    def transform(self, frame):
-        # Chuyển frame từ WebRTC (PIL Image) sang array (OpenCV)
+    # 2. Đổi tên hàm từ transform -> recv
+    def recv(self, frame: av.VideoFrame) -> av.VideoFrame:
+        # Chuyển frame từ av.VideoFrame (WebRTC) sang array (OpenCV)
         img = frame.to_ndarray(format="bgr24")
 
         # Chạy detect
@@ -61,8 +65,8 @@ class YoloVideoTransformer(VideoTransformerBase):
         with self.lock:
             self.container["detections"] = detections_list
         
-        # Trả về khung hình đã vẽ (BGR)
-        return annotated_frame
+        # 3. Trả về khung hình đã vẽ (phải convert về av.VideoFrame)
+        return av.VideoFrame.from_ndarray(annotated_frame, format="bgr24")
 
 # ---- Cấu hình chính của App ----
 st.set_page_config(page_title="YOLOv8 Detection App", layout="wide")
@@ -76,7 +80,7 @@ model = load_yolo_model(model_path)
 if model is None:
     st.stop()
 
-# ---- Logic chạy Webcam (Đã thay đổi) ----
+# ---- Logic chạy Webcam (Đã cập nhật) ----
 
 st.subheader("Video Feed (Webcam)")
 st_data_placeholder = st.empty() # Placeholder cho data, đặt lên trước
@@ -84,11 +88,12 @@ st_data_placeholder = st.empty() # Placeholder cho data, đặt lên trước
 # Khởi chạy stream webcam
 ctx = webrtc_streamer(
     key="yolo_webcam",
-    mode=WebRtcMode.SENDRECV, # Gửi và nhận
-    # video_transformer_factory để áp dụng class xử lý của chúng ta
-    video_transformer_factory=lambda: YoloVideoTransformer(model), 
-    media_stream_constraints={"video": True, "audio": False}, # Chỉ cần video
-    async_processing=True, # Xử lý bất đồng bộ
+    mode=WebRtcMode.SENDRECV,
+    # 4. Đổi tên argument: video_transformer_factory -> video_processor_factory
+    # 5. Dùng class mới: YoloVideoProcessor
+    video_processor_factory=lambda: YoloVideoProcessor(model), 
+    media_stream_constraints={"video": True, "audio": False},
+    async_processing=True,
 )
 
 st.subheader("Tín hiệu (Detections)")
