@@ -1,0 +1,5 @@
+# File này yêu cầu Streamlit Cloud cài đặt các thư viện hệ thống (Linux) cần thiết cho OpenCV và FFMpeg (thư viện av)
+
+ffmpeg
+libsm6
+libxext6
